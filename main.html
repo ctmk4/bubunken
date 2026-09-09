@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイル共有システム</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; }
+        h1 { text-align: center; color: #333; }
+        .tab { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+        .tab button { padding: 10px 20px; cursor: pointer; border: 1px solid #ccc; background: #eee; border-radius: 5px; font-size: 16px; }
+        .tab button.active-btn { background-color: #007BFF; color: white; border-color: #007BFF; }
+        .panel { display: none; padding: 20px; border: 1px solid #ccc; border-radius: 5px; background: white; }
+        .active-panel { display: block; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button.action-btn { padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%; font-size: 16px; }
+        button.action-btn:hover { background-color: #218838; }
+        #message { margin-top: 15px; font-weight: bold; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <h1>ファイル共有システム</h1>
+    
+    <div class="tab">
+        <button id="btn-upload" class="active-btn">アップロード</button>
+        <button id="btn-download">ダウンロード</button>
+    </div>
+
+    <div id="panel-upload" class="panel active-panel">
+        <h2>アップロード</h2>
+        <div class="form-group">
+            <label>共有名（必須・重複不可）:</label>
+            <input type="text" id="up-name" placeholder="例: my_secret_file">
+        </div>
+        <div class="form-group">
+            <label>パスワード（任意）:</label>
+            <input type="password" id="up-pass" placeholder="設定しない場合は空欄でOK">
+        </div>
+        <div class="form-group">
+            <label>ファイルを選択:</label>
+            <input type="file" id="up-file">
+        </div>
+        <button id="do-upload" class="action-btn">ファイルをアップロード</button>
+    </div>
+
+    <div id="panel-download" class="panel">
+        <h2>ダウンロード</h2>
+        <div class="form-group">
+            <label>共有名:</label>
+            <input type="text" id="down-name" placeholder="アップロード時に設定した名前">
+        </div>
+        <div class="form-group">
+            <label>パスワード:</label>
+            <input type="password" id="down-pass" placeholder="パスワードが設定されている場合のみ入力">
+        </div>
+        <button id="do-download" class="action-btn">ファイルをダウンロード</button>
+    </div>
+
+    <div id="message"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB3ZEV_YlNnoOOSh_EpSprz0Rwe-nbjkgI",
+            authDomain: "sotuken-9bb6d.firebaseapp.com",
+            projectId: "sotuken-9bb6d",
+            storageBucket: "sotuken-9bb6d.firebasestorage.app",
+            messagingSenderId: "400545127472",
+            appId: "1:400545127472:web:26b68acbb8e81bd53a21f5",
+            measurementId: "G-J9FRXD4Y4X"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        const btnUpload = document.getElementById('btn-upload');
+        const btnDownload = document.getElementById('btn-download');
+        const panelUpload = document.getElementById('panel-upload');
+        const panelDownload = document.getElementById('panel-download');
+        const msgDiv = document.getElementById('message');
+
+        function showMessage(msg, isError = true) {
+            msgDiv.style.color = isError ? 'red' : 'green';
+            msgDiv.innerText = msg;
+        }
+
+        btnUpload.addEventListener('click', () => {
+            btnUpload.classList.add('active-btn');
+            btnDownload.classList.remove('active-btn');
+            panelUpload.classList.add('active-panel');
+            panelDownload.classList.remove('active-panel');
+            msgDiv.innerText = '';
+        });
+
+        btnDownload.addEventListener('click', () => {
+            btnDownload.classList.add('active-btn');
+            btnUpload.classList.remove('active-btn');
+            panelDownload.classList.add('active-panel');
+            panelUpload.classList.remove('active-panel');
+            msgDiv.innerText = '';
+        });
+
+        document.getElementById('do-upload').addEventListener('click', async () => {
+            const name = document.getElementById('up-name').value.trim();
+            const pass = document.getElementById('up-pass').value;
+            const fileInput = document.getElementById('up-file');
+            
+            if (!name) return showMessage('共有名を入力してください。');
+            if (fileInput.files.length === 0) return showMessage('ファイルを選択してください。');
+
+            const file = fileInput.files[0];
+            // Firestoreの "shared_files" コレクションに、共有名をIDとして保存
+            const docRef = doc(db, "shared_files", name);
+
+            try {
+                showMessage('確認中...', false);
+                
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    return showMessage('エラー：すでに登録済みの共有名です。別の名前にしてください。');
+                }
+
+                showMessage('アップロード中...', false);
+
+                const storageRef = ref(storage, `uploads/${name}_${file.name}`);
+                await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(storageRef);
+
+                await setDoc(docRef, {
+                    fileName: file.name,
+                    password: pass,
+                    url: downloadURL,
+                    uploadedAt: new Date().toISOString()
+                });
+
+                showMessage('アップロードが完了しました！', false);
+                
+                document.getElementById('up-name').value = '';
+                document.getElementById('up-pass').value = '';
+                fileInput.value = '';
+
+            } catch (e) {
+                console.error(e);
+                showMessage('エラーが発生しました: ' + e.message);
+            }
+        });
+
+        document.getElementById('do-download').addEventListener('click', async () => {
+            const name = document.getElementById('down-name').value.trim();
+            const pass = document.getElementById('down-pass').value;
+
+            if (!name) return showMessage('共有名を入力してください。');
+
+            const docRef = doc(db, "shared_files", name);
+
+            try {
+                showMessage('検索中...', false);
+                const docSnap = await getDoc(docRef);
+              
+                if (!docSnap.exists()) {
+                    return showMessage('指定された共有名のファイルは見つかりません。');
+                }
+
+                const data = docSnap.data();
+
+                if (data.password && data.password !== pass) {
+                    return showMessage('パスワードが間違っています。');
+                }
+
+                showMessage('ダウンロードを開始します...', false);
+                
+                const link = document.createElement('a');
+                link.href = data.url;
+                link.target = '_blank';
+                link.download = data.fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+            } catch (e) {
+                console.error(e);
+                showMessage('エラーが発生しました: ' + e.message);
+            }
+        });
+    </script>
+</body>
+</html>
