@@ -30,7 +30,7 @@
     </div>
 
     <div id="panel-upload" class="panel active-panel">
-        <h2>アップロード</h2>
+        <h2>アップロード (1MB未満)</h2>
         <div class="form-group">
             <label>共有名（必須・重複不可）:</label>
             <input type="text" id="up-name" placeholder="例: my_secret_file">
@@ -65,7 +65,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB3ZEV_YlNnoOOSh_EpSprz0Rwe-nbjkgI",
@@ -80,7 +79,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app);
 
         const btnUpload = document.getElementById('btn-upload');
         const btnDownload = document.getElementById('btn-download');
@@ -110,7 +108,7 @@
         btnDownload.addEventListener('click', () => {
             btnDownload.classList.add('active-btn');
             btnUpload.classList.remove('active-btn');
-            panelDownload.classList.remove('active-panel');
+            panelDownload.classList.add('active-panel');
             panelUpload.classList.remove('active-panel');
             msgDiv.innerText = '';
         });
@@ -124,10 +122,14 @@
             if (fileInput.files.length === 0) return showMessage('ファイルを選択してください。');
 
             const file = fileInput.files[0];
+            if (file.size > 1024 * 1024) {
+                return showMessage('エラー：ファイルサイズが大きすぎます（1MB未満にしてください）。');
+            }
+
             const docRef = doc(db, "shared_files", name);
 
             try {
-                showMessage('接続準備中...', false);
+                showMessage('接続中...', false);
                 await ensureAuth();
 
                 const docSnap = await getDoc(docRef);
@@ -135,35 +137,24 @@
                     return showMessage('エラー：すでに登録済みの共有名です。別の名前にしてください。');
                 }
 
-                showMessage('アップロード中...', false);
+                showMessage('変換・アップロード中...', false);
 
-                const storageRef = ref(storage, `uploads/${Date.now()}_${file.name}`);
-                const uploadTask = uploadBytesResumable(storageRef, file);
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = async () => {
+                    const base64Data = reader.result;
+                    await setDoc(docRef, {
+                        fileName: file.name,
+                        password: pass,
+                        fileData: base64Data,
+                        uploadedAt: new Date().toISOString()
+                    });
 
-                uploadTask.on('state_changed',
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        showMessage(`アップロード中... (${Math.round(progress)}%)`, false);
-                    },
-                    (error) => {
-                        console.error(error);
-                        showMessage('アップロードエラー: ' + error.message);
-                    },
-                    async () => {
-                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                        await setDoc(docRef, {
-                            fileName: file.name,
-                            password: pass,
-                            url: downloadURL,
-                            uploadedAt: new Date().toISOString()
-                        });
-
-                        showMessage('アップロードが完了しました！', false);
-                        document.getElementById('up-name').value = '';
-                        document.getElementById('up-pass').value = '';
-                        fileInput.value = '';
-                    }
-                );
+                    showMessage('アップロードが完了しました！', false);
+                    document.getElementById('up-name').value = '';
+                    document.getElementById('up-pass').value = '';
+                    fileInput.value = '';
+                };
 
             } catch (e) {
                 console.error(e);
@@ -198,12 +189,13 @@
                 showMessage('ダウンロードを開始します...', false);
                 
                 const link = document.createElement('a');
-                link.href = data.url;
-                link.target = '_blank';
+                link.href = data.fileData;
                 link.download = data.fileName;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+
+                showMessage('ダウンロードが完了しました！', false);
 
             } catch (e) {
                 console.error(e);
