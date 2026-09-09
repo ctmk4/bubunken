@@ -63,8 +63,9 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+        import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB3ZEV_YlNnoOOSh_EpSprz0Rwe-nbjkgI",
@@ -77,6 +78,7 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
 
@@ -91,6 +93,12 @@
             msgDiv.innerText = msg;
         }
 
+        async function ensureAuth() {
+            if (!auth.currentUser) {
+                await signInAnonymously(auth);
+            }
+        }
+
         btnUpload.addEventListener('click', () => {
             btnUpload.classList.add('active-btn');
             btnDownload.classList.remove('active-btn');
@@ -102,7 +110,7 @@
         btnDownload.addEventListener('click', () => {
             btnDownload.classList.add('active-btn');
             btnUpload.classList.remove('active-btn');
-            panelDownload.classList.add('active-panel');
+            panelDownload.classList.remove('active-panel');
             panelUpload.classList.remove('active-panel');
             msgDiv.innerText = '';
         });
@@ -116,12 +124,12 @@
             if (fileInput.files.length === 0) return showMessage('ファイルを選択してください。');
 
             const file = fileInput.files[0];
-            // Firestoreの "shared_files" コレクションに、共有名をIDとして保存
             const docRef = doc(db, "shared_files", name);
 
             try {
-                showMessage('確認中...', false);
-                
+                showMessage('接続準備中...', false);
+                await ensureAuth();
+
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     return showMessage('エラー：すでに登録済みの共有名です。別の名前にしてください。');
@@ -129,22 +137,33 @@
 
                 showMessage('アップロード中...', false);
 
-                const storageRef = ref(storage, `uploads/${name}_${file.name}`);
-                await uploadBytes(storageRef, file);
-                const downloadURL = await getDownloadURL(storageRef);
+                const storageRef = ref(storage, `uploads/${Date.now()}_${file.name}`);
+                const uploadTask = uploadBytesResumable(storageRef, file);
 
-                await setDoc(docRef, {
-                    fileName: file.name,
-                    password: pass,
-                    url: downloadURL,
-                    uploadedAt: new Date().toISOString()
-                });
+                uploadTask.on('state_changed',
+                    (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        showMessage(`アップロード中... (${Math.round(progress)}%)`, false);
+                    },
+                    (error) => {
+                        console.error(error);
+                        showMessage('アップロードエラー: ' + error.message);
+                    },
+                    async () => {
+                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                        await setDoc(docRef, {
+                            fileName: file.name,
+                            password: pass,
+                            url: downloadURL,
+                            uploadedAt: new Date().toISOString()
+                        });
 
-                showMessage('アップロードが完了しました！', false);
-                
-                document.getElementById('up-name').value = '';
-                document.getElementById('up-pass').value = '';
-                fileInput.value = '';
+                        showMessage('アップロードが完了しました！', false);
+                        document.getElementById('up-name').value = '';
+                        document.getElementById('up-pass').value = '';
+                        fileInput.value = '';
+                    }
+                );
 
             } catch (e) {
                 console.error(e);
@@ -162,8 +181,10 @@
 
             try {
                 showMessage('検索中...', false);
+                await ensureAuth();
+
                 const docSnap = await getDoc(docRef);
-              
+
                 if (!docSnap.exists()) {
                     return showMessage('指定された共有名のファイルは見つかりません。');
                 }
