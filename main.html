@@ -30,7 +30,7 @@
     </div>
 
     <div id="panel-upload" class="panel active-panel">
-        <h2>アップロード (1MB未満)</h2>
+        <h2>アップロード (700KB未満)</h2>
         <div class="form-group">
             <label>共有名（必須・重複不可）:</label>
             <input type="text" id="up-name" placeholder="例: my_secret_file">
@@ -97,6 +97,17 @@
             }
         }
 
+        function dataURItoBlob(dataURI) {
+            const byteString = atob(dataURI.split(',')[1]);
+            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], {type: mimeString});
+        }
+
         btnUpload.addEventListener('click', () => {
             btnUpload.classList.add('active-btn');
             btnDownload.classList.remove('active-btn');
@@ -122,8 +133,8 @@
             if (fileInput.files.length === 0) return showMessage('ファイルを選択してください。');
 
             const file = fileInput.files[0];
-            if (file.size > 1024 * 1024) {
-                return showMessage('エラー：ファイルサイズが大きすぎます（1MB未満にしてください）。');
+            if (file.size > 700 * 1024) {
+                return showMessage('エラー：ファイルサイズが大きすぎます（700KB未満にしてください）。');
             }
 
             const docRef = doc(db, "shared_files", name);
@@ -188,12 +199,16 @@
 
                 showMessage('ダウンロードを開始します...', false);
                 
+                const blob = dataURItoBlob(data.fileData);
+                const url = URL.createObjectURL(blob);
+
                 const link = document.createElement('a');
-                link.href = data.fileData;
+                link.href = url;
                 link.download = data.fileName;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+                URL.revokeObjectURL(url);
 
                 showMessage('ダウンロードが完了しました！', false);
 
