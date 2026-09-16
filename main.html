@@ -3,47 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>シンプル掲示板</title>
+    <title>スレッド型 掲示板</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
             background-color: #f4f5f7;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             color: #333;
+        }
+        header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.5em;
         }
         .container {
             max-width: 600px;
-            margin: 0 auto;
+            margin: 20px auto;
             background: #fff;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        h1 {
-            text-align: center;
-            color: #4CAF50;
-        }
+        /* ビューの切り替え用 */
+        .view { display: none; }
+        .view.active { display: block; }
+        
+        /* フォーム部品 */
         .form-group {
             display: flex;
-            flex-direction: column;
             gap: 10px;
             margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
+        }
+        .form-group-col {
+            flex-direction: column;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+            margin-top: 20px;
         }
         input[type="text"], textarea {
-            width: 100%;
+            flex: 1;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            box-sizing: border-box;
             font-size: 16px;
         }
-        textarea {
-            resize: vertical;
-            height: 80px;
-        }
+        textarea { resize: vertical; height: 80px; }
         button {
             padding: 10px 15px;
             background-color: #4CAF50;
@@ -53,179 +66,292 @@
             cursor: pointer;
             font-size: 16px;
             font-weight: bold;
+            white-space: nowrap;
         }
-        button:hover {
-            background-color: #45a049;
-        }
-        .message-list {
+        button:hover { background-color: #45a049; }
+        button.secondary { background-color: #666; }
+        button.secondary:hover { background-color: #555; }
+
+        /* リストデザイン */
+        .list-container {
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
+        /* スレッド一覧のアイテム */
+        .thread-item {
+            display: block;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #333;
+            border: 1px solid #ddd;
+            transition: background 0.2s;
+        }
+        .thread-item:hover {
+            background: #e9f5e9;
+            border-color: #4CAF50;
+        }
+        .thread-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2c662d;
+        }
+        .meta-text {
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        /* メッセージ一覧のアイテム */
         .message-item {
             background: #f9f9f9;
             padding: 15px;
             border-left: 5px solid #4CAF50;
             border-radius: 4px;
         }
-        .message-header {
-            font-size: 0.9em;
-            color: #666;
-            margin-bottom: 5px;
+        .message-header { margin-bottom: 5px; }
+        .message-name { font-weight: bold; color: #222; }
+        .message-body { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+        
+        /* ユーティリティ */
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
         }
-        .message-name {
-            font-weight: bold;
-            color: #222;
-        }
-        .message-time {
-            font-size: 0.8em;
-            margin-left: 10px;
-        }
-        .message-body {
-            margin: 0;
-            line-height: 1.5;
-            white-space: pre-wrap;
-        }
+        .header-actions h2 { margin: 0; }
     </style>
 </head>
 <body>
 
+<header>
+    <h1>スレッド型 掲示板</h1>
+</header>
+
 <div class="container">
-    <h1>シンプル掲示板</h1>
     
-    <!-- 投稿フォーム -->
-    <div class="form-group">
-        <input type="text" id="nameInput" placeholder="名前（省略可）" maxlength="20">
-        <textarea id="messageInput" placeholder="メッセージを入力してください..." required></textarea>
-        <button id="submitBtn">投稿する</button>
+    <!-- ================= 1. メインページ（スレッド一覧） ================= -->
+    <div id="homeView" class="view active">
+        <div class="form-group">
+            <input type="text" id="newThreadTitle" placeholder="新しいスレッドのタイトル" maxlength="50">
+            <button id="createThreadBtn">スレッド作成</button>
+        </div>
+        <h2>スレッド一覧</h2>
+        <div id="threadList" class="list-container">
+            <!-- スレッド一覧がここに入ります -->
+        </div>
     </div>
 
-    <!-- 投稿一覧 -->
-    <div id="messageList" class="message-list">
-        <!-- ここにメッセージが追加されます -->
+    <!-- ================= 2. スレッドページ（メッセージ一覧） ================= -->
+    <div id="threadView" class="view">
+        <div class="header-actions">
+            <button class="secondary" onclick="location.hash='#'">← 戻る</button>
+            <h2 id="currentThreadTitle">読み込み中...</h2>
+        </div>
+
+        <div id="messageList" class="list-container" style="margin-bottom: 20px;">
+            <!-- メッセージがここに入ります -->
+        </div>
+
+        <div class="form-group form-group-col">
+            <input type="text" id="nameInput" placeholder="名前（省略可）" maxlength="20">
+            <textarea id="messageInput" placeholder="メッセージを入力してください..." required></textarea>
+            <button id="submitMessageBtn">メッセージを投稿</button>
+        </div>
     </div>
+
 </div>
 
 <script type="module">
-  // Firebaseのコア機能とアナリティクスをインポート
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
-  // Firestoreの機能をインポート
   import { 
-      getFirestore, 
-      collection, 
-      addDoc, 
-      onSnapshot, 
-      query, 
-      orderBy, 
-      serverTimestamp 
+      getFirestore, collection, doc, getDoc, addDoc, onSnapshot, query, orderBy, serverTimestamp 
   } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-  // 提供されたFirebaseの設定
   const firebaseConfig = {
     apiKey: "AIzaSyB6oDIqTqR87Mv5Cqo3tVud2tZLGmP982E",
     authDomain: "sotuken-47c08.firebaseapp.com",
     projectId: "sotuken-47c08",
     storageBucket: "sotuken-47c08.firebasestorage.app",
     messagingSenderId: "495973514160",
-    appId: "1:495973514160:web:fa3996da883dc6979a7475",
-    measurementId: "G-9F2J0CVNV7"
+    appId: "1:495973514160:web:fa3996da883dc6979a7475"
   };
 
-  // Firebaseの初期化
   const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-  
-  // Firestoreの初期化
   const db = getFirestore(app);
 
-  // Firestoreの「messages」コレクションへの参照
-  const messagesRef = collection(db, 'messages');
-  
-  // 投稿を新しい順に並べるクエリ
-  const q = query(messagesRef, orderBy('createdAt', 'desc'));
+  // 状態管理用の変数
+  let unsubscribeThreads = null;
+  let unsubscribeMessages = null;
+  let currentThreadId = null;
 
-  // DOM要素の取得
+  // DOM要素
+  const homeView = document.getElementById('homeView');
+  const threadView = document.getElementById('threadView');
+  const threadList = document.getElementById('threadList');
   const messageList = document.getElementById('messageList');
-  const nameInput = document.getElementById('nameInput');
-  const messageInput = document.getElementById('messageInput');
-  const submitBtn = document.getElementById('submitBtn');
+  const currentThreadTitle = document.getElementById('currentThreadTitle');
+  
+  // HTMLエスケープ処理
+  const escapeHTML = (str) => str.replace(/[&<>'"]/g, 
+      tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
+  );
 
-  // XSS対策（HTMLエスケープ）関数
-  const escapeHTML = (str) => {
-      return str.replace(/[&<>'"]/g, 
-          tag => ({
-              '&': '&amp;',
-              '<': '&lt;',
-              '>': '&gt;',
-              "'": '&#39;',
-              '"': '&quot;'
-          }[tag])
-      );
+  // 日付フォーマット処理
+  const formatDate = (timestamp) => {
+      if (!timestamp) return '送信中...';
+      const d = timestamp.toDate();
+      return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
 
-  // リアルタイムでデータを取得して画面に表示
-  onSnapshot(q, (snapshot) => {
-      messageList.innerHTML = ''; // 一旦リストをクリア
-      
-      snapshot.forEach((doc) => {
-          const data = doc.data();
-          const div = document.createElement('div');
-          div.className = 'message-item';
-          
-          const name = data.name ? escapeHTML(data.name) : '名無しさん';
-          const text = data.text ? escapeHTML(data.text) : '';
-          
-          // タイムスタンプの処理（投稿直後はnullになる対策）
-          let timeString = '送信中...';
-          if (data.createdAt) {
-              const date = data.createdAt.toDate();
-              timeString = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
-          }
+  // ================= ルーティング（画面切り替え処理） =================
+  const handleHashChange = async () => {
+      const hash = window.location.hash;
 
-          div.innerHTML = `
-              <div class="message-header">
-                  <span class="message-name">${name}</span>
-                  <span class="message-time">${timeString}</span>
-              </div>
-              <p class="message-body">${text}</p>
-          `;
-          messageList.appendChild(div);
+      if (hash.startsWith('#thread=')) {
+          // "#thread=xxx" の場合、スレッドページを表示
+          currentThreadId = hash.replace('#thread=', '');
+          homeView.classList.remove('active');
+          threadView.classList.active = 'active';
+          threadView.classList.add('active');
+          loadThreadView(currentThreadId);
+      } else {
+          // それ以外（"#"など）は、メインページを表示
+          currentThreadId = null;
+          threadView.classList.remove('active');
+          homeView.classList.add('active');
+          loadHomeView();
+      }
+  };
+
+  // ================= メインページ（スレッド一覧）処理 =================
+  const loadHomeView = () => {
+      // 以前のメッセージ一覧の監視を解除（通信量を節約）
+      if (unsubscribeMessages) unsubscribeMessages();
+      
+      const q = query(collection(db, 'threads'), orderBy('createdAt', 'desc'));
+      
+      unsubscribeThreads = onSnapshot(q, (snapshot) => {
+          threadList.innerHTML = '';
+          snapshot.forEach((doc) => {
+              const data = doc.data();
+              const a = document.createElement('a');
+              a.href = `#thread=${doc.id}`; // ハッシュリンクを設定
+              a.className = 'thread-item';
+              a.innerHTML = `
+                  <div class="thread-title">${escapeHTML(data.title)}</div>
+                  <div class="meta-text">作成日時: ${formatDate(data.createdAt)}</div>
+              `;
+              threadList.appendChild(a);
+          });
+          if (snapshot.empty) threadList.innerHTML = '<p>スレッドがありません。新しく作成してください。</p>';
       });
+  };
+
+  // スレッド作成処理
+  document.getElementById('createThreadBtn').addEventListener('click', async (e) => {
+      const titleInput = document.getElementById('newThreadTitle');
+      const title = titleInput.value.trim();
+      
+      if (!title) {
+          alert('スレッド名を入力してください');
+          return;
+      }
+      e.target.disabled = true;
+      try {
+          await addDoc(collection(db, 'threads'), {
+              title: title,
+              createdAt: serverTimestamp()
+          });
+          titleInput.value = '';
+      } catch (error) {
+          console.error(error);
+          alert('スレッドの作成に失敗しました');
+      }
+      e.target.disabled = false;
   });
 
-  // 投稿ボタンクリック時の処理
-  submitBtn.addEventListener('click', async () => {
+  // ================= スレッドページ（メッセージ一覧）処理 =================
+  const loadThreadView = async (threadId) => {
+      // 以前のスレッド一覧の監視を解除
+      if (unsubscribeThreads) unsubscribeThreads();
+      
+      messageList.innerHTML = '<p>読み込み中...</p>';
+      currentThreadTitle.innerText = "読み込み中...";
+
+      try {
+          // スレッドのタイトルを取得
+          const threadDoc = await getDoc(doc(db, 'threads', threadId));
+          if (threadDoc.exists()) {
+              currentThreadTitle.innerText = escapeHTML(threadDoc.data().title);
+          } else {
+              currentThreadTitle.innerText = "削除されたスレッドです";
+              return;
+          }
+
+          // メッセージを古い順（asc）に取得（チャット形式）
+          const q = query(collection(db, 'threads', threadId, 'messages'), orderBy('createdAt', 'asc'));
+          
+          unsubscribeMessages = onSnapshot(q, (snapshot) => {
+              messageList.innerHTML = '';
+              snapshot.forEach((doc) => {
+                  const data = doc.data();
+                  const div = document.createElement('div');
+                  div.className = 'message-item';
+                  div.innerHTML = `
+                      <div class="message-header">
+                          <span class="message-name">${data.name ? escapeHTML(data.name) : '名無しさん'}</span>
+                          <span class="meta-text" style="margin-left:10px;">${formatDate(data.createdAt)}</span>
+                      </div>
+                      <p class="message-body">${escapeHTML(data.text)}</p>
+                  `;
+                  messageList.appendChild(div);
+              });
+              if (snapshot.empty) messageList.innerHTML = '<p>まだメッセージはありません。最初の投稿をしましょう！</p>';
+          });
+      } catch(e) {
+          console.error(e);
+          messageList.innerHTML = '<p>エラーが発生しました。</p>';
+      }
+  };
+
+  // メッセージ投稿処理
+  document.getElementById('submitMessageBtn').addEventListener('click', async (e) => {
+      if (!currentThreadId) return;
+
+      const nameInput = document.getElementById('nameInput');
+      const messageInput = document.getElementById('messageInput');
       const text = messageInput.value.trim();
       const name = nameInput.value.trim();
 
       if (!text) {
-          alert('メッセージを入力してください。');
+          alert('メッセージを入力してください');
           return;
       }
 
-      // ボタンを連打できないように無効化
-      submitBtn.disabled = true;
-
+      e.target.disabled = true;
       try {
-          // Firestoreにデータを追加
-          await addDoc(messagesRef, {
+          // threads/{threadId}/messages コレクションに追加
+          await addDoc(collection(db, 'threads', currentThreadId, 'messages'), {
               name: name,
               text: text,
-              createdAt: serverTimestamp() // サーバーの時間を取得
+              createdAt: serverTimestamp()
           });
-          
-          // 入力欄をクリア
           messageInput.value = '';
       } catch (error) {
-          console.error("エラーが発生しました: ", error);
-          alert("投稿に失敗しました。データベースの設定（セキュリティルール）を確認してください。");
-      } finally {
-          // ボタンを有効化
-          submitBtn.disabled = false;
+          console.error(error);
+          alert('投稿に失敗しました');
       }
+      e.target.disabled = false;
   });
-</script>
 
+  // 初回読み込み時のルーティングと、URLのハッシュが変わったときのイベント設定
+  window.addEventListener('hashchange', handleHashChange);
+  handleHashChange(); // ページ読み込み時に実行
+
+</script>
 </body>
 </html>
