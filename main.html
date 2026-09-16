@@ -3,220 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ファイル共有システム</title>
+    <title>シンプル掲示板</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; }
-        h1 { text-align: center; color: #333; }
-        .tab { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
-        .tab button { padding: 10px 20px; cursor: pointer; border: 1px solid #ccc; background: #eee; border-radius: 5px; font-size: 16px; }
-        .tab button.active-btn { background-color: #007BFF; color: white; border-color: #007BFF; }
-        .panel { display: none; padding: 20px; border: 1px solid #ccc; border-radius: 5px; background: white; }
-        .active-panel { display: block; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-        .form-group input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        button.action-btn { padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%; font-size: 16px; }
-        button.action-btn:hover { background-color: #218838; }
-        #message { margin-top: 15px; font-weight: bold; text-align: center; }
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: #f4f5f7;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        textarea {
+            resize: vertical;
+            height: 80px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .message-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .message-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-left: 5px solid #4CAF50;
+            border-radius: 4px;
+        }
+        .message-header {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .message-name {
+            font-weight: bold;
+            color: #222;
+        }
+        .message-time {
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        .message-body {
+            margin: 0;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
 
-    <h1>ファイル共有システム</h1>
+<div class="container">
+    <h1>シンプル掲示板</h1>
     
-    <div class="tab">
-        <button id="btn-upload" class="active-btn">アップロード</button>
-        <button id="btn-download">ダウンロード</button>
+    <!-- 投稿フォーム -->
+    <div class="form-group">
+        <input type="text" id="nameInput" placeholder="名前（省略可）" maxlength="20">
+        <textarea id="messageInput" placeholder="メッセージを入力してください..." required></textarea>
+        <button id="submitBtn">投稿する</button>
     </div>
 
-    <div id="panel-upload" class="panel active-panel">
-        <h2>アップロード (700KB未満)</h2>
-        <div class="form-group">
-            <label>共有名（必須・重複不可）:</label>
-            <input type="text" id="up-name" placeholder="例: my_secret_file">
-        </div>
-        <div class="form-group">
-            <label>パスワード（任意）:</label>
-            <input type="password" id="up-pass" placeholder="設定しない場合は空欄でOK">
-        </div>
-        <div class="form-group">
-            <label>ファイルを選択:</label>
-            <input type="file" id="up-file">
-        </div>
-        <button id="do-upload" class="action-btn">ファイルをアップロード</button>
+    <!-- 投稿一覧 -->
+    <div id="messageList" class="message-list">
+        <!-- ここにメッセージが追加されます -->
     </div>
+</div>
 
-    <div id="panel-download" class="panel">
-        <h2>ダウンロード</h2>
-        <div class="form-group">
-            <label>共有名:</label>
-            <input type="text" id="down-name" placeholder="アップロード時に設定した名前">
-        </div>
-        <div class="form-group">
-            <label>パスワード:</label>
-            <input type="password" id="down-pass" placeholder="パスワードが設定されている場合のみ入力">
-        </div>
-        <button id="do-download" class="action-btn">ファイルをダウンロード</button>
-    </div>
+<script type="module">
+  // Firebaseのコア機能とアナリティクスをインポート
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
+  // Firestoreの機能をインポート
+  import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      onSnapshot, 
+      query, 
+      orderBy, 
+      serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-    <div id="message"></div>
+  // 提供されたFirebaseの設定
+  const firebaseConfig = {
+    apiKey: "AIzaSyB6oDIqTqR87Mv5Cqo3tVud2tZLGmP982E",
+    authDomain: "sotuken-47c08.firebaseapp.com",
+    projectId: "sotuken-47c08",
+    storageBucket: "sotuken-47c08.firebasestorage.app",
+    messagingSenderId: "495973514160",
+    appId: "1:495973514160:web:fa3996da883dc6979a7475",
+    measurementId: "G-9F2J0CVNV7"
+  };
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+  // Firebaseの初期化
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  
+  // Firestoreの初期化
+  const db = getFirestore(app);
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyB3ZEV_YlNnoOOSh_EpSprz0Rwe-nbjkgI",
-            authDomain: "sotuken-9bb6d.firebaseapp.com",
-            projectId: "sotuken-9bb6d",
-            storageBucket: "sotuken-9bb6d.firebasestorage.app",
-            messagingSenderId: "400545127472",
-            appId: "1:400545127472:web:26b68acbb8e81bd53a21f5",
-            measurementId: "G-J9FRXD4Y4X"
-        };
+  // Firestoreの「messages」コレクションへの参照
+  const messagesRef = collection(db, 'messages');
+  
+  // 投稿を新しい順に並べるクエリ
+  const q = query(messagesRef, orderBy('createdAt', 'desc'));
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+  // DOM要素の取得
+  const messageList = document.getElementById('messageList');
+  const nameInput = document.getElementById('nameInput');
+  const messageInput = document.getElementById('messageInput');
+  const submitBtn = document.getElementById('submitBtn');
 
-        const btnUpload = document.getElementById('btn-upload');
-        const btnDownload = document.getElementById('btn-download');
-        const panelUpload = document.getElementById('panel-upload');
-        const panelDownload = document.getElementById('panel-download');
-        const msgDiv = document.getElementById('message');
+  // XSS対策（HTMLエスケープ）関数
+  const escapeHTML = (str) => {
+      return str.replace(/[&<>'"]/g, 
+          tag => ({
+              '&': '&amp;',
+              '<': '&lt;',
+              '>': '&gt;',
+              "'": '&#39;',
+              '"': '&quot;'
+          }[tag])
+      );
+  };
 
-        function showMessage(msg, isError = true) {
-            msgDiv.style.color = isError ? 'red' : 'green';
-            msgDiv.innerText = msg;
-        }
+  // リアルタイムでデータを取得して画面に表示
+  onSnapshot(q, (snapshot) => {
+      messageList.innerHTML = ''; // 一旦リストをクリア
+      
+      snapshot.forEach((doc) => {
+          const data = doc.data();
+          const div = document.createElement('div');
+          div.className = 'message-item';
+          
+          const name = data.name ? escapeHTML(data.name) : '名無しさん';
+          const text = data.text ? escapeHTML(data.text) : '';
+          
+          // タイムスタンプの処理（投稿直後はnullになる対策）
+          let timeString = '送信中...';
+          if (data.createdAt) {
+              const date = data.createdAt.toDate();
+              timeString = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+          }
 
-        async function ensureAuth() {
-            if (!auth.currentUser) {
-                await signInAnonymously(auth);
-            }
-        }
+          div.innerHTML = `
+              <div class="message-header">
+                  <span class="message-name">${name}</span>
+                  <span class="message-time">${timeString}</span>
+              </div>
+              <p class="message-body">${text}</p>
+          `;
+          messageList.appendChild(div);
+      });
+  });
 
-        function dataURItoBlob(dataURI) {
-            const byteString = atob(dataURI.split(',')[1]);
-            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-            }
-            return new Blob([ab], {type: mimeString});
-        }
+  // 投稿ボタンクリック時の処理
+  submitBtn.addEventListener('click', async () => {
+      const text = messageInput.value.trim();
+      const name = nameInput.value.trim();
 
-        btnUpload.addEventListener('click', () => {
-            btnUpload.classList.add('active-btn');
-            btnDownload.classList.remove('active-btn');
-            panelUpload.classList.add('active-panel');
-            panelDownload.classList.remove('active-panel');
-            msgDiv.innerText = '';
-        });
+      if (!text) {
+          alert('メッセージを入力してください。');
+          return;
+      }
 
-        btnDownload.addEventListener('click', () => {
-            btnDownload.classList.add('active-btn');
-            btnUpload.classList.remove('active-btn');
-            panelDownload.classList.add('active-panel');
-            panelUpload.classList.remove('active-panel');
-            msgDiv.innerText = '';
-        });
+      // ボタンを連打できないように無効化
+      submitBtn.disabled = true;
 
-        document.getElementById('do-upload').addEventListener('click', async () => {
-            const name = document.getElementById('up-name').value.trim();
-            const pass = document.getElementById('up-pass').value;
-            const fileInput = document.getElementById('up-file');
-            
-            if (!name) return showMessage('共有名を入力してください。');
-            if (fileInput.files.length === 0) return showMessage('ファイルを選択してください。');
+      try {
+          // Firestoreにデータを追加
+          await addDoc(messagesRef, {
+              name: name,
+              text: text,
+              createdAt: serverTimestamp() // サーバーの時間を取得
+          });
+          
+          // 入力欄をクリア
+          messageInput.value = '';
+      } catch (error) {
+          console.error("エラーが発生しました: ", error);
+          alert("投稿に失敗しました。データベースの設定（セキュリティルール）を確認してください。");
+      } finally {
+          // ボタンを有効化
+          submitBtn.disabled = false;
+      }
+  });
+</script>
 
-            const file = fileInput.files[0];
-            if (file.size > 700 * 1024) {
-                return showMessage('エラー：ファイルサイズが大きすぎます（700KB未満にしてください）。');
-            }
-
-            const docRef = doc(db, "shared_files", name);
-
-            try {
-                showMessage('接続中...', false);
-                await ensureAuth();
-
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    return showMessage('エラー：すでに登録済みの共有名です。別の名前にしてください。');
-                }
-
-                showMessage('変換・アップロード中...', false);
-
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = async () => {
-                    const base64Data = reader.result;
-                    await setDoc(docRef, {
-                        fileName: file.name,
-                        password: pass,
-                        fileData: base64Data,
-                        uploadedAt: new Date().toISOString()
-                    });
-
-                    showMessage('アップロードが完了しました！', false);
-                    document.getElementById('up-name').value = '';
-                    document.getElementById('up-pass').value = '';
-                    fileInput.value = '';
-                };
-
-            } catch (e) {
-                console.error(e);
-                showMessage('エラーが発生しました: ' + e.message);
-            }
-        });
-
-        document.getElementById('do-download').addEventListener('click', async () => {
-            const name = document.getElementById('down-name').value.trim();
-            const pass = document.getElementById('down-pass').value;
-
-            if (!name) return showMessage('共有名を入力してください。');
-
-            const docRef = doc(db, "shared_files", name);
-
-            try {
-                showMessage('検索中...', false);
-                await ensureAuth();
-
-                const docSnap = await getDoc(docRef);
-
-                if (!docSnap.exists()) {
-                    return showMessage('指定された共有名のファイルは見つかりません。');
-                }
-
-                const data = docSnap.data();
-
-                if (data.password && data.password !== pass) {
-                    return showMessage('パスワードが間違っています。');
-                }
-
-                showMessage('ダウンロードを開始します...', false);
-                
-                const blob = dataURItoBlob(data.fileData);
-                const url = URL.createObjectURL(blob);
-
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = data.fileName;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-
-                showMessage('ダウンロードが完了しました！', false);
-
-            } catch (e) {
-                console.error(e);
-                showMessage('エラーが発生しました: ' + e.message);
-            }
-        });
-    </script>
 </body>
 </html>
