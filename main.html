@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>スレッド型 掲示板</title>
+    <title>スレッド型 掲示板 (独自ログイン機能付き)</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
@@ -16,7 +16,9 @@
             background-color: #4CAF50;
             color: white;
             padding: 15px 20px;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             position: sticky;
             top: 0;
@@ -24,7 +26,25 @@
         header h1 {
             margin: 0;
             font-size: 1.5em;
+            cursor: pointer;
         }
+        .header-user {
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-btn {
+            background: white;
+            color: #4CAF50;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .header-btn:hover { background: #e0e0e0; }
+
         .container {
             max-width: 600px;
             margin: 20px auto;
@@ -49,7 +69,7 @@
             padding-top: 20px;
             margin-top: 20px;
         }
-        input[type="text"], textarea {
+        input[type="text"], input[type="password"], textarea {
             flex: 1;
             padding: 10px;
             border: 1px solid #ccc;
@@ -71,78 +91,63 @@
         button:hover { background-color: #45a049; }
         button.secondary { background-color: #666; }
         button.secondary:hover { background-color: #555; }
+        button.primary { width: 100%; margin-bottom: 10px; }
 
         /* リストデザイン */
-        .list-container {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        /* スレッド一覧のアイテム */
+        .list-container { display: flex; flex-direction: column; gap: 15px; }
         .thread-item {
-            display: block;
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 4px;
-            text-decoration: none;
-            color: #333;
-            border: 1px solid #ddd;
-            transition: background 0.2s;
+            display: block; background: #f9f9f9; padding: 15px; border-radius: 4px;
+            text-decoration: none; color: #333; border: 1px solid #ddd;
         }
-        .thread-item:hover {
-            background: #e9f5e9;
-            border-color: #4CAF50;
-        }
-        .thread-title {
-            font-size: 1.2em;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #2c662d;
-        }
-        .meta-text {
-            font-size: 0.8em;
-            color: #666;
-        }
+        .thread-item:hover { background: #e9f5e9; border-color: #4CAF50; }
+        .thread-title { font-size: 1.2em; font-weight: bold; margin-bottom: 5px; color: #2c662d; }
+        .meta-text { font-size: 0.8em; color: #666; }
 
-        /* メッセージ一覧のアイテム */
-        .message-item {
-            background: #f9f9f9;
-            padding: 15px;
-            border-left: 5px solid #4CAF50;
-            border-radius: 4px;
-        }
+        .message-item { background: #f9f9f9; padding: 15px; border-left: 5px solid #4CAF50; border-radius: 4px; }
         .message-header { margin-bottom: 5px; }
         .message-name { font-weight: bold; color: #222; }
         .message-body { margin: 0; line-height: 1.5; white-space: pre-wrap; }
         
-        /* ユーティリティ */
-        .header-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .header-actions h2 { margin: 0; }
+        .login-box { max-width: 400px; margin: 0 auto; text-align: center; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>スレッド型 掲示板</h1>
+    <h1 onclick="location.hash='#'">スレッド掲示板</h1>
+    <div class="header-user" id="headerUserArea">
+        <!-- ログイン状態に応じてここが書き換わります -->
+    </div>
 </header>
 
 <div class="container">
     
+    <!-- ================= 0. ログイン・登録ページ ================= -->
+    <div id="loginView" class="view">
+        <div class="login-box">
+            <h2>ログイン / 新規登録</h2>
+            <p style="font-size: 0.9em; color: #666;">※名前が既に存在する場合は新規登録できません。</p>
+            <div class="form-group-col">
+                <input type="text" id="authName" placeholder="ユーザー名" maxlength="20">
+                <input type="password" id="authPassword" placeholder="パスワード">
+                <button id="loginBtn" class="primary">ログイン</button>
+                <button id="registerBtn" class="secondary primary">新規登録</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ================= 1. メインページ（スレッド一覧） ================= -->
     <div id="homeView" class="view active">
-        <div class="form-group">
+        <div class="form-group" id="threadFormArea">
             <input type="text" id="newThreadTitle" placeholder="新しいスレッドのタイトル" maxlength="50">
             <button id="createThreadBtn">スレッド作成</button>
         </div>
+        <p id="loginPromptThread" style="color: red; display: none;">※スレッドを作成するにはログインしてください。</p>
+        
         <h2>スレッド一覧</h2>
-        <div id="threadList" class="list-container">
-            <!-- スレッド一覧がここに入ります -->
-        </div>
+        <div id="threadList" class="list-container"></div>
     </div>
 
     <!-- ================= 2. スレッドページ（メッセージ一覧） ================= -->
@@ -152,15 +157,14 @@
             <h2 id="currentThreadTitle">読み込み中...</h2>
         </div>
 
-        <div id="messageList" class="list-container" style="margin-bottom: 20px;">
-            <!-- メッセージがここに入ります -->
-        </div>
+        <div id="messageList" class="list-container" style="margin-bottom: 20px;"></div>
 
-        <div class="form-group form-group-col">
-            <input type="text" id="nameInput" placeholder="名前（省略可）" maxlength="20">
+        <div class="form-group form-group-col" id="messageFormArea">
+            <p>投稿者: <strong id="displayUserName"></strong></p>
             <textarea id="messageInput" placeholder="メッセージを入力してください..." required></textarea>
             <button id="submitMessageBtn">メッセージを投稿</button>
         </div>
+        <p id="loginPromptMessage" style="color: red; display: none;">※メッセージを投稿するにはログインしてください。</p>
     </div>
 
 </div>
@@ -168,7 +172,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
   import { 
-      getFirestore, collection, doc, getDoc, addDoc, onSnapshot, query, orderBy, serverTimestamp 
+      getFirestore, collection, doc, getDoc, setDoc, addDoc, onSnapshot, query, orderBy, serverTimestamp 
   } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -183,118 +187,197 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // 状態管理用の変数
+  // === 状態管理 ===
   let unsubscribeThreads = null;
   let unsubscribeMessages = null;
   let currentThreadId = null;
-
-  // DOM要素
-  const homeView = document.getElementById('homeView');
-  const threadView = document.getElementById('threadView');
-  const threadList = document.getElementById('threadList');
-  const messageList = document.getElementById('messageList');
-  const currentThreadTitle = document.getElementById('currentThreadTitle');
   
-  // HTMLエスケープ処理
-  const escapeHTML = (str) => str.replace(/[&<>'"]/g, 
-      tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])
-  );
+  // LocalStorageからログイン中のユーザー名を取得
+  let currentUser = localStorage.getItem('bbs_user') || null;
 
-  // 日付フォーマット処理
+  // === DOM要素 ===
+  const views = {
+      home: document.getElementById('homeView'),
+      thread: document.getElementById('threadView'),
+      login: document.getElementById('loginView')
+  };
+  const headerUserArea = document.getElementById('headerUserArea');
+
+  // エスケープ処理 & 日付処理
+  const escapeHTML = (str) => str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
   const formatDate = (timestamp) => {
       if (!timestamp) return '送信中...';
       const d = timestamp.toDate();
       return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
 
-  // ================= ルーティング（画面切り替え処理） =================
-  const handleHashChange = async () => {
-      const hash = window.location.hash;
+  // ================= ヘッダー・ログインUIの更新 =================
+  const updateUI = () => {
+      if (currentUser) {
+          // ログイン中
+          headerUserArea.innerHTML = `
+              <span>${escapeHTML(currentUser)} さん</span>
+              <button class="header-btn" id="logoutBtn">ログアウト</button>
+          `;
+          document.getElementById('logoutBtn').addEventListener('click', () => {
+              localStorage.removeItem('bbs_user');
+              currentUser = null;
+              updateUI();
+              alert('ログアウトしました');
+          });
 
-      if (hash.startsWith('#thread=')) {
-          // "#thread=xxx" の場合、スレッドページを表示
-          currentThreadId = hash.replace('#thread=', '');
-          homeView.classList.remove('active');
-          threadView.classList.active = 'active';
-          threadView.classList.add('active');
-          loadThreadView(currentThreadId);
+          // 投稿フォームを表示
+          document.getElementById('threadFormArea').style.display = 'flex';
+          document.getElementById('loginPromptThread').style.display = 'none';
+          document.getElementById('messageFormArea').style.display = 'flex';
+          document.getElementById('loginPromptMessage').style.display = 'none';
+          document.getElementById('displayUserName').innerText = currentUser;
       } else {
-          // それ以外（"#"など）は、メインページを表示
-          currentThreadId = null;
-          threadView.classList.remove('active');
-          homeView.classList.add('active');
-          loadHomeView();
+          // 未ログイン
+          headerUserArea.innerHTML = `
+              <button class="header-btn" onclick="location.hash='#login'">ログイン / 登録</button>
+          `;
+          // 投稿フォームを隠す
+          document.getElementById('threadFormArea').style.display = 'none';
+          document.getElementById('loginPromptThread').style.display = 'block';
+          document.getElementById('messageFormArea').style.display = 'none';
+          document.getElementById('loginPromptMessage').style.display = 'block';
       }
   };
 
-  // ================= メインページ（スレッド一覧）処理 =================
+  // ================= 認証（ログイン・新規登録）処理 =================
+  document.getElementById('registerBtn').addEventListener('click', async () => {
+      const name = document.getElementById('authName').value.trim();
+      const pass = document.getElementById('authPassword').value;
+      if (!name || !pass) return alert('名前とパスワードを入力してください');
+
+      try {
+          // "users"コレクションに同じ名前（ドキュメントID）が存在するかチェック
+          const userRef = doc(db, 'users', name);
+          const docSnap = await getDoc(userRef);
+
+          if (docSnap.exists()) {
+              alert('その名前はすでに使われています。別の名前にするか、ログインしてください。');
+          } else {
+              // 存在しない場合、ユーザー情報を保存（新規登録）
+              await setDoc(userRef, {
+                  password: pass, // ※実験用。本番では平文保存はNG
+                  createdAt: serverTimestamp()
+              });
+              currentUser = name;
+              localStorage.setItem('bbs_user', name);
+              alert('登録が完了し、ログインしました！');
+              updateUI();
+              location.hash = '#'; // トップへ戻る
+          }
+      } catch (e) {
+          console.error(e);
+          alert('エラーが発生しました');
+      }
+  });
+
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+      const name = document.getElementById('authName').value.trim();
+      const pass = document.getElementById('authPassword').value;
+      if (!name || !pass) return alert('名前とパスワードを入力してください');
+
+      try {
+          const userRef = doc(db, 'users', name);
+          const docSnap = await getDoc(userRef);
+
+          if (!docSnap.exists()) {
+              alert('ユーザーが見つかりません。新規登録してください。');
+          } else {
+              // パスワードの照合
+              if (docSnap.data().password === pass) {
+                  currentUser = name;
+                  localStorage.setItem('bbs_user', name);
+                  alert('ログインしました！');
+                  updateUI();
+                  location.hash = '#';
+              } else {
+                  alert('パスワードが間違っています。');
+              }
+          }
+      } catch (e) {
+          console.error(e);
+          alert('エラーが発生しました');
+      }
+  });
+
+
+  // ================= ルーティング =================
+  const handleHashChange = () => {
+      const hash = window.location.hash;
+      // すべてのビューを隠す
+      Object.values(views).forEach(v => v.classList.remove('active'));
+
+      if (hash === '#login') {
+          views.login.classList.add('active');
+      } else if (hash.startsWith('#thread=')) {
+          currentThreadId = hash.replace('#thread=', '');
+          views.thread.classList.add('active');
+          loadThreadView(currentThreadId);
+      } else {
+          currentThreadId = null;
+          views.home.classList.add('active');
+          loadHomeView();
+      }
+      updateUI();
+  };
+
+  // ================= メインページ処理 =================
   const loadHomeView = () => {
-      // 以前のメッセージ一覧の監視を解除（通信量を節約）
       if (unsubscribeMessages) unsubscribeMessages();
-      
       const q = query(collection(db, 'threads'), orderBy('createdAt', 'desc'));
-      
       unsubscribeThreads = onSnapshot(q, (snapshot) => {
+          const threadList = document.getElementById('threadList');
           threadList.innerHTML = '';
           snapshot.forEach((doc) => {
               const data = doc.data();
               const a = document.createElement('a');
-              a.href = `#thread=${doc.id}`; // ハッシュリンクを設定
+              a.href = `#thread=${doc.id}`;
               a.className = 'thread-item';
               a.innerHTML = `
                   <div class="thread-title">${escapeHTML(data.title)}</div>
-                  <div class="meta-text">作成日時: ${formatDate(data.createdAt)}</div>
+                  <div class="meta-text">作成者: ${escapeHTML(data.author || '不明')} | 作成日時: ${formatDate(data.createdAt)}</div>
               `;
               threadList.appendChild(a);
           });
-          if (snapshot.empty) threadList.innerHTML = '<p>スレッドがありません。新しく作成してください。</p>';
+          if (snapshot.empty) threadList.innerHTML = '<p>スレッドがありません。</p>';
       });
   };
 
-  // スレッド作成処理
   document.getElementById('createThreadBtn').addEventListener('click', async (e) => {
-      const titleInput = document.getElementById('newThreadTitle');
-      const title = titleInput.value.trim();
-      
-      if (!title) {
-          alert('スレッド名を入力してください');
-          return;
-      }
+      const title = document.getElementById('newThreadTitle').value.trim();
+      if (!title || !currentUser) return;
       e.target.disabled = true;
       try {
           await addDoc(collection(db, 'threads'), {
               title: title,
+              author: currentUser, // ログインユーザー名を記録
               createdAt: serverTimestamp()
           });
-          titleInput.value = '';
-      } catch (error) {
-          console.error(error);
-          alert('スレッドの作成に失敗しました');
-      }
+          document.getElementById('newThreadTitle').value = '';
+      } catch (error) { console.error(error); alert('失敗しました'); }
       e.target.disabled = false;
   });
 
-  // ================= スレッドページ（メッセージ一覧）処理 =================
+  // ================= スレッドページ処理 =================
   const loadThreadView = async (threadId) => {
-      // 以前のスレッド一覧の監視を解除
       if (unsubscribeThreads) unsubscribeThreads();
-      
+      const messageList = document.getElementById('messageList');
       messageList.innerHTML = '<p>読み込み中...</p>';
-      currentThreadTitle.innerText = "読み込み中...";
 
       try {
-          // スレッドのタイトルを取得
           const threadDoc = await getDoc(doc(db, 'threads', threadId));
           if (threadDoc.exists()) {
-              currentThreadTitle.innerText = escapeHTML(threadDoc.data().title);
+              document.getElementById('currentThreadTitle').innerText = escapeHTML(threadDoc.data().title);
           } else {
-              currentThreadTitle.innerText = "削除されたスレッドです";
-              return;
+              document.getElementById('currentThreadTitle').innerText = "削除されたスレッド"; return;
           }
 
-          // メッセージを古い順（asc）に取得（チャット形式）
           const q = query(collection(db, 'threads', threadId, 'messages'), orderBy('createdAt', 'asc'));
-          
           unsubscribeMessages = onSnapshot(q, (snapshot) => {
               messageList.innerHTML = '';
               snapshot.forEach((doc) => {
@@ -303,54 +386,38 @@
                   div.className = 'message-item';
                   div.innerHTML = `
                       <div class="message-header">
-                          <span class="message-name">${data.name ? escapeHTML(data.name) : '名無しさん'}</span>
+                          <span class="message-name">${escapeHTML(data.name)}</span>
                           <span class="meta-text" style="margin-left:10px;">${formatDate(data.createdAt)}</span>
                       </div>
                       <p class="message-body">${escapeHTML(data.text)}</p>
                   `;
                   messageList.appendChild(div);
               });
-              if (snapshot.empty) messageList.innerHTML = '<p>まだメッセージはありません。最初の投稿をしましょう！</p>';
+              if (snapshot.empty) messageList.innerHTML = '<p>メッセージはありません。</p>';
           });
-      } catch(e) {
-          console.error(e);
-          messageList.innerHTML = '<p>エラーが発生しました。</p>';
-      }
+      } catch(e) { console.error(e); }
   };
 
-  // メッセージ投稿処理
   document.getElementById('submitMessageBtn').addEventListener('click', async (e) => {
-      if (!currentThreadId) return;
-
-      const nameInput = document.getElementById('nameInput');
+      if (!currentThreadId || !currentUser) return;
       const messageInput = document.getElementById('messageInput');
       const text = messageInput.value.trim();
-      const name = nameInput.value.trim();
-
-      if (!text) {
-          alert('メッセージを入力してください');
-          return;
-      }
+      if (!text) return;
 
       e.target.disabled = true;
       try {
-          // threads/{threadId}/messages コレクションに追加
           await addDoc(collection(db, 'threads', currentThreadId, 'messages'), {
-              name: name,
+              name: currentUser, // ログインユーザー名で投稿
               text: text,
               createdAt: serverTimestamp()
           });
           messageInput.value = '';
-      } catch (error) {
-          console.error(error);
-          alert('投稿に失敗しました');
-      }
+      } catch (error) { console.error(error); alert('失敗しました'); }
       e.target.disabled = false;
   });
 
-  // 初回読み込み時のルーティングと、URLのハッシュが変わったときのイベント設定
   window.addEventListener('hashchange', handleHashChange);
-  handleHashChange(); // ページ読み込み時に実行
+  handleHashChange();
 
 </script>
 </body>
