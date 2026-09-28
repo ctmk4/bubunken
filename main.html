@@ -172,16 +172,13 @@
   } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
   const firebaseConfig = {
- apiKey: "AIzaSyB6oDIqTqR87Mv5Cqo3tVud2tZLGmP982E",
+    apiKey: "AIzaSyB6oDIqTqR87Mv5Cqo3tVud2tZLGmP982E",
     authDomain: "sotuken-47c08.firebaseapp.com",
     projectId: "sotuken-47c08",
     storageBucket: "sotuken-47c08.firebasestorage.app",
     messagingSenderId: "495973514160",
     appId: "1:495973514160:web:fa3996da883dc6979a7475"
   };
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
