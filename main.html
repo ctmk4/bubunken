@@ -5,108 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>スレッド型 掲示板</title>
     <style>
-        body {
-            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-            background-color: #f4f5f7;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-        header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            position: sticky;
-            top: 0;
-        }
-        header h1 {
-            margin: 0;
-            font-size: 1.5em;
-            cursor: pointer;
-        }
-        .header-user {
-            font-size: 0.9em;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .header-btn {
-            background: white;
-            color: #4CAF50;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 0; color: #333; }
+        header { background-color: #4CAF50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: sticky; top: 0; }
+        header h1 { margin: 0; font-size: 1.5em; cursor: pointer; }
+        .header-user { font-size: 0.9em; display: flex; align-items: center; gap: 10px; }
+        .header-btn { background: white; color: #4CAF50; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .header-btn:hover { background: #e0e0e0; }
-
-        .container {
-            max-width: 600px;
-            margin: 20px auto;
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        /* ビューの切り替え用 */
+        .container { max-width: 600px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .view { display: none; }
         .view.active { display: block; }
-        
-        /* フォーム部品 */
-        .form-group-col {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-top: 2px solid #eee;
-            padding-top: 20px;
-            margin-top: 20px;
-        }
-        input[type="text"], input[type="password"], textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 16px;
-            box-sizing: border-box;
-        }
+        .form-group-col { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; border-top: 2px solid #eee; padding-top: 20px; margin-top: 20px; }
+        input[type="text"], input[type="password"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; box-sizing: border-box; }
         textarea { resize: vertical; height: 80px; }
-        button {
-            padding: 10px 15px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-        }
+        button { padding: 10px 15px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
         button:hover { background-color: #45a049; }
         button.secondary { background-color: #666; }
         button.secondary:hover { background-color: #555; }
         button.primary { width: 100%; margin-bottom: 10px; }
-
-        /* リストデザイン */
         .list-container { display: flex; flex-direction: column; gap: 15px; }
-        .thread-item {
-            display: block; background: #f9f9f9; padding: 15px; border-radius: 4px;
-            text-decoration: none; color: #333; border: 1px solid #ddd;
-        }
+        .thread-item { display: block; background: #f9f9f9; padding: 15px; border-radius: 4px; text-decoration: none; color: #333; border: 1px solid #ddd; }
         .thread-item:hover { background: #e9f5e9; border-color: #4CAF50; }
         .thread-title { font-size: 1.2em; font-weight: bold; margin-bottom: 5px; color: #2c662d; }
         .meta-text { font-size: 0.8em; color: #666; }
-
         .message-item { background: #f9f9f9; padding: 15px; border-left: 5px solid #4CAF50; border-radius: 4px; }
         .message-header { margin-bottom: 5px; }
         .message-name { font-weight: bold; color: #222; }
         .trip { color: #228b22; font-weight: normal; margin-left: 5px; }
         .message-body { margin: 0; line-height: 1.5; white-space: pre-wrap; }
-        
         .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .header-actions h2 { margin: 0; }
         .login-box { max-width: 400px; margin: 0 auto; text-align: center; }
@@ -114,14 +39,22 @@
 </head>
 <body>
 
+<script>
+    window.addEventListener('error', function(e) {
+        alert('【システムエラー】\n' + e.message);
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+        alert('【通信エラー】\n' + (e.reason.message || e.reason));
+    });
+</script>
+
 <header>
     <h1 onclick="location.hash='#'">スレッド掲示板</h1>
     <div class="header-user" id="headerUserArea"></div>
 </header>
 
 <div class="container">
-    
-    <!-- ================= 0. ログイン・登録ページ ================= -->
+    <!-- ログイン・登録ページ -->
     <div id="loginView" class="view">
         <div class="login-box">
             <h2>ログイン / 新規登録</h2>
@@ -135,7 +68,7 @@
         </div>
     </div>
 
-    <!-- ================= 1. メインページ（スレッド一覧） ================= -->
+    <!-- メインページ（スレッド一覧） -->
     <div id="homeView" class="view active">
         <div class="form-group-col" id="threadFormArea">
             <div id="threadNameArea"></div>
@@ -147,7 +80,7 @@
         <div id="threadList" class="list-container"></div>
     </div>
 
-    <!-- ================= 2. スレッドページ（メッセージ一覧） ================= -->
+    <!-- スレッドページ（メッセージ一覧） -->
     <div id="threadView" class="view">
         <div class="header-actions">
             <button class="secondary" onclick="location.hash='#'">← 戻る</button>
@@ -162,37 +95,33 @@
             <button id="submitMessageBtn">メッセージを投稿</button>
         </div>
     </div>
-
 </div>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
   import { 
-      getFirestore, collection, doc, getDoc, setDoc, addDoc, onSnapshot, query, orderBy, serverTimestamp 
-  } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+      getDatabase, ref, get, set, push, onValue 
+  } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyB6oDIqTqR87Mv5Cqo3tVud2tZLGmP982E",
-    authDomain: "sotuken-47c08.firebaseapp.com",
-    projectId: "sotuken-47c08",
-    storageBucket: "sotuken-47c08.firebasestorage.app",
-    messagingSenderId: "495973514160",
-    appId: "1:495973514160:web:fa3996da883dc6979a7475"
+      apiKey: "AIzaSyCwhHspaG94goiCIjVj3h-Un5pBK3JTjMU",
+      authDomain: "soulkin-aa3b7.firebaseapp.com",
+      databaseURL: "https://soulkin-aa3b7-default-rtdb.firebaseio.com",
+      projectId: "soulkin-aa3b7",
+      storageBucket: "soulkin-aa3b7.firebasestorage.app",
+      messagingSenderId: "358331064206",
+      appId: "1:358331064206:web:d7760ea0919259418a4edf",
+      measurementId: "G-S5Z8TTWYE2"
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+  const db = getDatabase(app);
 
-  // === 状態管理 ===
-  let unsubscribeThreads = null;
-  let unsubscribeMessages = null;
   let currentThreadId = null;
   
-  // LocalStorageからログイン情報（名前とトリップ）を取得
   let currentUser = localStorage.getItem('bbs_user') || null;
   let currentTrip = localStorage.getItem('bbs_trip') || null;
 
-  // === DOM要素 ===
   const views = {
       home: document.getElementById('homeView'),
       thread: document.getElementById('threadView'),
@@ -200,15 +129,14 @@
   };
   const headerUserArea = document.getElementById('headerUserArea');
 
-  // エスケープ処理 & 日付処理
   const escapeHTML = (str) => str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
+  
   const formatDate = (timestamp) => {
       if (!timestamp) return '送信中...';
-      const d = timestamp.toDate();
+      const d = typeof timestamp === 'number' ? new Date(timestamp) : new Date();
       return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
 
-  // 10桁のランダムなトリップを生成する関数
   const generateTrip = () => {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789./';
       let trip = '◆';
@@ -218,13 +146,11 @@
       return trip;
   };
 
-  // ================= UIの更新 (ログイン状態に応じた表示) =================
   const updateUI = () => {
       const threadNameArea = document.getElementById('threadNameArea');
       const messageNameArea = document.getElementById('messageNameArea');
 
       if (currentUser) {
-          // --- ログイン中の表示 ---
           headerUserArea.innerHTML = `
               <span>${escapeHTML(currentUser)} <span class="trip">${escapeHTML(currentTrip)}</span> さん</span>
               <button class="header-btn" id="logoutBtn">ログアウト</button>
@@ -237,79 +163,67 @@
               alert('ログアウトしました');
           });
 
-          // フォームの名前入力を隠し、固定の名前にする
           threadNameArea.innerHTML = `<p style="margin:0;">作成者: <strong>${escapeHTML(currentUser)}</strong> <span class="trip">${escapeHTML(currentTrip)}</span></p>`;
           messageNameArea.innerHTML = `<p style="margin:0;">投稿者: <strong>${escapeHTML(currentUser)}</strong> <span class="trip">${escapeHTML(currentTrip)}</span></p>`;
       } else {
-          // --- 未ログイン（匿名）の表示 ---
           headerUserArea.innerHTML = `<button class="header-btn" onclick="location.hash='#login'">ログイン / 登録</button>`;
-          
-          // フォームに名前入力欄（任意）を表示
           threadNameArea.innerHTML = `<input type="text" id="threadNameInput" placeholder="名前（省略可）" maxlength="20">`;
           messageNameArea.innerHTML = `<input type="text" id="messageNameInput" placeholder="名前（省略可）" maxlength="20">`;
       }
   };
 
-  // ================= 認証（ログイン・新規登録）処理 =================
+  // 新規登録処理
   document.getElementById('registerBtn').addEventListener('click', async () => {
       const name = document.getElementById('authName').value.trim();
       const pass = document.getElementById('authPassword').value;
       if (!name || !pass) return alert('名前とパスワードを入力してください');
 
       try {
-          const userRef = doc(db, 'users', name);
-          const docSnap = await getDoc(userRef);
+          const userRef = ref(db, 'users/' + name);
+          const snapshot = await get(userRef);
 
-          if (docSnap.exists()) {
+          if (snapshot.exists()) {
               alert('その名前はすでに使われています。');
           } else {
-              const newTrip = generateTrip(); // ランダムなトリップを生成
-              await setDoc(userRef, {
-                  password: pass,
-                  trip: newTrip, // トリップを保存
-                  createdAt: serverTimestamp()
-              });
-              currentUser = name;
-              currentTrip = newTrip;
-              localStorage.setItem('bbs_user', name);
-              localStorage.setItem('bbs_trip', newTrip);
-              alert(`登録が完了しました！\nあなたのトリップは【 ${newTrip} 】です。`);
-              updateUI();
-              location.hash = '#';
+              const newTrip = generateTrip();
+              await set(userRef, { password: pass, trip: newTrip, createdAt: Date.now() });
+              currentUser = name; currentTrip = newTrip;
+              localStorage.setItem('bbs_user', name); localStorage.setItem('bbs_trip', newTrip);
+              alert(`登録完了！\nトリップ:【 ${newTrip} 】`);
+              updateUI(); location.hash = '#';
           }
-      } catch (e) { console.error(e); alert('エラーが発生しました'); }
+      } catch (e) {
+          alert('登録に失敗しました:\n' + e.message);
+      }
   });
 
+  // ログイン処理
   document.getElementById('loginBtn').addEventListener('click', async () => {
       const name = document.getElementById('authName').value.trim();
       const pass = document.getElementById('authPassword').value;
       if (!name || !pass) return alert('名前とパスワードを入力してください');
 
       try {
-          const userRef = doc(db, 'users', name);
-          const docSnap = await getDoc(userRef);
+          const userRef = ref(db, 'users/' + name);
+          const snapshot = await get(userRef);
 
-          if (!docSnap.exists()) {
+          if (!snapshot.exists()) {
               alert('ユーザーが見つかりません。');
           } else {
-              const userData = docSnap.data();
+              const userData = snapshot.val();
               if (userData.password === pass) {
-                  currentUser = name;
-                  currentTrip = userData.trip || '◆ERROR';
-                  localStorage.setItem('bbs_user', name);
-                  localStorage.setItem('bbs_trip', currentTrip);
+                  currentUser = name; currentTrip = userData.trip || '◆ERROR';
+                  localStorage.setItem('bbs_user', name); localStorage.setItem('bbs_trip', currentTrip);
                   alert('ログインしました！');
-                  updateUI();
-                  location.hash = '#';
-              } else {
-                  alert('パスワードが間違っています。');
-              }
+                  updateUI(); location.hash = '#';
+              } else { alert('パスワードが間違っています。'); }
           }
-      } catch (e) { console.error(e); alert('エラーが発生しました'); }
+      } catch (e) {
+          alert('ログインに失敗しました:\n' + e.message);
+      }
   });
 
-
-  // ================= ルーティング =================
+  // 画面切り替え
   const handleHashChange = () => {
       const hash = window.location.hash;
       Object.values(views).forEach(v => v.classList.remove('active'));
@@ -328,109 +242,138 @@
       updateUI();
   };
 
-  // ================= メインページ処理 =================
+  // スレッド一覧表示
   const loadHomeView = () => {
-      if (unsubscribeMessages) unsubscribeMessages();
-      const q = query(collection(db, 'threads'), orderBy('createdAt', 'desc'));
-      unsubscribeThreads = onSnapshot(q, (snapshot) => {
+      const threadsRef = ref(db, 'threads');
+      onValue(threadsRef, (snapshot) => {
           const threadList = document.getElementById('threadList');
           threadList.innerHTML = '';
-          snapshot.forEach((doc) => {
-              const data = doc.data();
-              const tripHtml = data.trip ? `<span class="trip">${escapeHTML(data.trip)}</span>` : '';
+          if (!snapshot.exists()) {
+              threadList.innerHTML = '<p>スレッドがありません。</p>';
+              return;
+          }
+
+          const data = snapshot.val();
+          const threadsArray = [];
+          for (let id in data) {
+              threadsArray.push({ id, ...data[id] });
+          }
+          threadsArray.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+          threadsArray.forEach((thread) => {
+              const tripHtml = thread.trip ? `<span class="trip">${escapeHTML(thread.trip)}</span>` : '';
               const a = document.createElement('a');
-              a.href = `#thread=${doc.id}`;
+              a.href = `#thread=${thread.id}`;
               a.className = 'thread-item';
-              a.innerHTML = `
-                  <div class="thread-title">${escapeHTML(data.title)}</div>
-                  <div class="meta-text">作成者: ${escapeHTML(data.author || '名無しさん')}${tripHtml} | 作成日時: ${formatDate(data.createdAt)}</div>
-              `;
+              a.innerHTML = `<div class="thread-title">${escapeHTML(thread.title)}</div>
+                             <div class="meta-text">作成者: ${escapeHTML(thread.author || '名無しさん')}${tripHtml} | 作成日時: ${formatDate(thread.createdAt)}</div>`;
               threadList.appendChild(a);
           });
-          if (snapshot.empty) threadList.innerHTML = '<p>スレッドがありません。</p>';
+      }, (error) => {
+          alert("スレッド一覧の取得に失敗しました:\n" + error.message);
       });
   };
 
+  // スレッド作成
   document.getElementById('createThreadBtn').addEventListener('click', async (e) => {
       const title = document.getElementById('newThreadTitle').value.trim();
       if (!title) return alert('タイトルを入力してください');
       
-      // ログイン中なら登録名とトリップを使用、未ログインなら入力名（空なら「名無しさん」）とトリップ無し
       let authorName = currentUser ? currentUser : (document.getElementById('threadNameInput').value.trim() || '名無しさん');
       let authorTrip = currentTrip || '';
 
       e.target.disabled = true;
       try {
-          await addDoc(collection(db, 'threads'), {
+          const threadsRef = ref(db, 'threads');
+          const newThreadRef = push(threadsRef);
+          await set(newThreadRef, {
               title: title,
               author: authorName,
-              trip: authorTrip, // トリップを保存（未ログイン時は空文字）
-              createdAt: serverTimestamp()
+              trip: authorTrip,
+              createdAt: Date.now()
           });
           document.getElementById('newThreadTitle').value = '';
           if (!currentUser) document.getElementById('threadNameInput').value = '';
-      } catch (error) { console.error(error); alert('失敗しました'); }
-      e.target.disabled = false;
+      } catch (error) {
+          alert('スレッド作成エラー:\n' + error.message);
+      } finally {
+          e.target.disabled = false;
+      }
   });
 
-  // ================= スレッドページ処理 =================
+  // スレッド詳細（メッセージ表示）
   const loadThreadView = async (threadId) => {
-      if (unsubscribeThreads) unsubscribeThreads();
       const messageList = document.getElementById('messageList');
       messageList.innerHTML = '<p>読み込み中...</p>';
 
       try {
-          const threadDoc = await getDoc(doc(db, 'threads', threadId));
-          if (threadDoc.exists()) {
-              document.getElementById('currentThreadTitle').innerText = escapeHTML(threadDoc.data().title);
+          const threadRef = ref(db, 'threads/' + threadId);
+          const threadSnap = await get(threadRef);
+          if (threadSnap.exists()) {
+              document.getElementById('currentThreadTitle').innerText = escapeHTML(threadSnap.val().title);
           } else {
-              document.getElementById('currentThreadTitle').innerText = "削除されたスレッド"; return;
+              document.getElementById('currentThreadTitle').innerText = "削除されたスレッド";
+              return;
           }
 
-          const q = query(collection(db, 'threads', threadId, 'messages'), orderBy('createdAt', 'asc'));
-          unsubscribeMessages = onSnapshot(q, (snapshot) => {
+          const messagesRef = ref(db, 'messages/' + threadId);
+          onValue(messagesRef, (snapshot) => {
               messageList.innerHTML = '';
-              snapshot.forEach((doc) => {
-                  const data = doc.data();
-                  const tripHtml = data.trip ? `<span class="trip">${escapeHTML(data.trip)}</span>` : '';
+              if (!snapshot.exists()) {
+                  messageList.innerHTML = '<p>メッセージはありません。</p>';
+                  return;
+              }
+
+              const data = snapshot.val();
+              const messagesArray = [];
+              for (let id in data) {
+                  messagesArray.push({ id, ...data[id] });
+              }
+              messagesArray.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+              messagesArray.forEach((msg) => {
+                  const tripHtml = msg.trip ? `<span class="trip">${escapeHTML(msg.trip)}</span>` : '';
                   const div = document.createElement('div');
                   div.className = 'message-item';
-                  div.innerHTML = `
-                      <div class="message-header">
-                          <span class="message-name">${escapeHTML(data.name || '名無しさん')}${tripHtml}</span>
-                          <span class="meta-text" style="margin-left:10px;">${formatDate(data.createdAt)}</span>
-                      </div>
-                      <p class="message-body">${escapeHTML(data.text)}</p>
-                  `;
+                  div.innerHTML = `<div class="message-header"><span class="message-name">${escapeHTML(msg.name || '名無しさん')}${tripHtml}</span><span class="meta-text" style="margin-left:10px;">${formatDate(msg.createdAt)}</span></div>
+                                   <p class="message-body">${escapeHTML(msg.text)}</p>`;
                   messageList.appendChild(div);
               });
-              if (snapshot.empty) messageList.innerHTML = '<p>メッセージはありません。</p>';
+          }, (error) => {
+              alert('メッセージ取得エラー:\n' + error.message);
           });
-      } catch(e) { console.error(e); }
+      } catch(e) {
+          alert('エラー:\n' + e.message);
+      }
   };
 
+  // メッセージ投稿
   document.getElementById('submitMessageBtn').addEventListener('click', async (e) => {
       if (!currentThreadId) return;
       const messageInput = document.getElementById('messageInput');
       const text = messageInput.value.trim();
       if (!text) return alert('メッセージを入力してください');
 
-      // ログイン中なら登録名とトリップを使用、未ログインなら入力名とトリップ無し
       let postName = currentUser ? currentUser : (document.getElementById('messageNameInput').value.trim() || '名無しさん');
       let postTrip = currentTrip || '';
 
       e.target.disabled = true;
       try {
-          await addDoc(collection(db, 'threads', currentThreadId, 'messages'), {
+          const messagesRef = ref(db, 'messages/' + currentThreadId);
+          const newMsgRef = push(messagesRef);
+          await set(newMsgRef, {
               name: postName,
-              trip: postTrip, // トリップを保存
+              trip: postTrip,
               text: text,
-              createdAt: serverTimestamp()
+              createdAt: Date.now()
           });
           messageInput.value = '';
           if (!currentUser) document.getElementById('messageNameInput').value = '';
-      } catch (error) { console.error(error); alert('失敗しました'); }
-      e.target.disabled = false;
+      } catch (error) {
+          alert('投稿エラー:\n' + error.message);
+      } finally {
+          e.target.disabled = false;
+      }
   });
 
   window.addEventListener('hashchange', handleHashChange);
